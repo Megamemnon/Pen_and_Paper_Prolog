@@ -6,6 +6,12 @@ The current version supports facts and rules in a KnowledgeBase (KB) file, speci
 After loading KB, the ppp executable provides a prompt to the user where a query, in the form of a fact (ending in a period), or the atom 'quit.' can be submitted.  
 ppp will attempt resolution and present the current Unifier and Goal upon Success, and prompt to continue. After completion, the final Unifier and all steps (in the order encountered by the resolution algortithm) are presented.  
 ## Project Goals
+- Implement a functional (but minimal) form of Prolog
+  - This goal is complete, for now, and tested with various included tests
+    - likes(mary,wine). MaryLikesWine
+    - true(X). Implication
+    - a(s(s(0)), s(s(0)), X). Ackermann
+  - Verified good Garbage Collection with Valgrind (no errors/leaks).
 - Provide a readable proof to the user upon success (not quite there yet).  
 - Support modifying the KB from within ppp (and saving the new KB file), using resolution as a method to verify correctness of new KB entries.
 - provide additional language/KB features
