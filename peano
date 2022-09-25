@@ -1,0 +1,9 @@
+n(0).
+eq(X,X):-n(X).
+eq(Y,X):-n(X), n(Y), eq(X,Y).
+eq(X,Z):-n(X), n(Y), n(Z), eq(X,Y), eq(Y,Z).
+n(Y):-n(X), eq(X,Y).
+n(s(X)):-n(X).
+eq(X,Y):-n(X), n(Y), eq(s(X),s(Y)).
+not(eq(s(X),0)):-n(X).
+n(s(X)):-n(0), n(X), n(s(X)):-n(X).

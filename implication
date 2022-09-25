@@ -1,0 +1,3 @@
+true(a).
+impl(a,b).
+true(Y):-true(X),impl(X,Y).
