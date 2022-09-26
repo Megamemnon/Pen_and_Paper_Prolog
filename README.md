@@ -14,7 +14,7 @@ Whitespace is ignored (in fact removed).
 > \<term> ::= \<atom> | \<functor> | \<variable> | \<conjunction>  
 > \<conjunction> ::= \<term> | \<conjunction> "," \<term>  
 > \<implication> ::= \<term> ":-" \<conjunction>  
-> \<complexconjunction> ::= \<conjunction> | \<complexconjunction> "," \<implication> | > > \<implication> "," \<complexconjunction>  
+> \<complexconjunction> ::= \<conjunction> | \<complexconjunction> "," \<implication> | \<implication> "," \<complexconjunction>  
 > \<fact> ::= \<term> "."  
 > \<rule> ::= \<term> ":-" \<complexconjunction> "."  
 > \<query> ::= \<fact> "."  
