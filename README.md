@@ -5,6 +5,23 @@ This is a minimal Prolog implementation with resolution and unification algorith
 The current version supports facts and rules in a KnowledgeBase (KB) file, specified on the command line. The DEBUG define ignores command line parameters and looks for a file named 'testkb'.  
 After loading KB, the ppp executable provides a prompt to the user where a query, in the form of a fact (ending in a period), or the atom 'quit.' can be submitted.  
 ppp will attempt resolution and present the current Unifier and Goal upon Success, and prompt to continue. After completion, the final Unifier and all steps (in the order encountered by the resolution algortithm) are presented.  
+## Language
+Whitespace is ignored (in fact removed).  
+
+> \<atom>               ::= [a-z][a-zA-Z0-9]*  
+> \<variable>           ::= [A-Z][a-zA-Z0-9]*  
+> \<functor> ::= \<atom> "(" \<term> ")"  
+> \<term> ::= \<atom> | \<functor> | \<variable> | \<conjunction>  
+> \<conjunction> ::= \<term> | \<conjunction> "," \<term>  
+> \<implication> ::= \<term> ":-" \<conjunction>  
+> \<complexconjunction> ::= \<conjunction> | \<complexconjunction> "," \<implication> | > > \<implication> "," \<complexconjunction>  
+> \<fact> ::= \<term> "."  
+> \<rule> ::= \<term> ":-" \<complexconjunction> "."  
+> \<query> ::= \<fact> "."  
+
+KB should consist of facts and rules.  
+ppp expects a query at the "?-" prompt.  
+
 ## Project Goals
 - Implement a functional (but minimal) form of Prolog
   - This goal is complete, for now, and tested with various included tests
