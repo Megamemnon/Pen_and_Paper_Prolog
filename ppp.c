@@ -800,7 +800,7 @@ int main(int argc, char const *argv[])
 
   char buf[B_MAX_STRING_LENGTH];
   while(1){
-    printf("]");
+    printf("?-");
     fgets(buf, B_MAX_STRING_LENGTH-1, stdin);
     if(buf[0] != '\0' && buf[0] != '\n'){
       buf[strlength(buf)-1] = '\0';
