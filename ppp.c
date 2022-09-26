@@ -508,35 +508,57 @@ char *unifyVariable(char *term1, char *term2, char *unifier);
 /* unify - returns unification of provided terms in format {X|a}{Y|b}... */
 char *unify(char *term1, char *term2, char *unifier){
   if(!unifier) return NULL;
-  if(!term1 || !term2) return unifier;
-  if(!strcomp(term1, term2)) return unifier;
+  if(!term1 || !term2) return copyString(unifier);
+  if(!strcomp(term1, term2)) return copyString(unifier);
   TermType tt1 = type(term1);
   TermType tt2 = type(term2);
-  if(tt1 == TTVARIABLE) return unifyVariable(term1, term2, unifier);
-  if(tt2 == TTVARIABLE) return unifyVariable(term2, term1, unifier);
+  if(tt1 == TTVARIABLE){
+    return unifyVariable(term1, term2, unifier);
+  }
+  if(tt2 == TTVARIABLE){ 
+    return unifyVariable(term2, term1, unifier);
+  }
   if(tt1 == TTFUNCTOR && tt2 == TTFUNCTOR){
     char *t1a = getArgs(term1);
     char *t2a = getArgs(term2);
     char *t1o = getOp(term1);
     char *t2o = getOp(term2);
-    char *ufunc = unify(t1a, t2a, unify(t1o, t2o, unifier));
-    freeChar(&t1a);
-    freeChar(&t2a);
+    char *ufunc = unify(t1o, t2o, unifier);
+    if(!ufunc){
+      freeChar(&t1o);
+      freeChar(&t2o);
+      freeChar(&t1a);
+      freeChar(&t2a);
+      return NULL;
+    }
+    char *ufunc2 = unify(t1a, t2a, ufunc);
     freeChar(&t1o);
     freeChar(&t2o);
-    return ufunc;
+    freeChar(&t1a);
+    freeChar(&t2a);
+    freeChar(&ufunc);    
+    return ufunc2;
   }
   if(tt1 == TTCONJUNCTION && tt2 == TTCONJUNCTION){
     char *ft1 = firstTerm(term1);
     char *ft2 = firstTerm(term2);
     char *rt1 = restTerm(term1, ft1);
     char *rt2 = restTerm(term2, ft2);
-    char *uconj = unify(rt1, rt2, unify(ft1, ft2, unifier));
+    char *uconj = unify(ft1, ft2, unifier);
+    if(!uconj){
+      freeChar(&ft1);
+      freeChar(&ft2);
+      freeChar(&rt1);
+      freeChar(&rt2);
+      return NULL;
+    }
+    char *uconj2 = unify(rt1, rt2, uconj);
     freeChar(&ft1);
     freeChar(&ft2);
     freeChar(&rt1);
     freeChar(&rt2);
-    return uconj;
+    freeChar(&uconj);
+    return uconj2;
   }
   return NULL;
 }
@@ -572,7 +594,6 @@ char *unifyVariable(char *var, char *term, char *unifier){
   bufindex += strlength(term);
   buf[bufindex++] = '}';
   buf[bufindex] = '\0';
-  // free(unifier);
   char *u = malloc(strlength(buf)+1);
   strcopy(buf, u);
   return u;
@@ -657,8 +678,25 @@ int appendProof(char *term){
 int midresolveprompt(char *unifier){
   if(unifier){
     printf("Yes.\n");
-    printf("Θ = %s\n", unifier);
-    char *t = substitute(Query, unifier);
+    // printf("Θ = %s\n", unifier);
+    // printf("q = %s\n", Query);
+    char *t = Query;
+    char *tp = NULL;
+    int done = 0;
+    while(!done){
+      t = substitute(t, unifier);
+      if(!tp){
+        tp = t;
+      } else {
+        if(!strcomp(t, tp)){
+          done = 1;
+          freeChar(&tp);
+        } else {
+          freeChar(&tp);
+          tp = t;
+        }
+      }
+    }
     printf("Θq = %s\n", t);
     freeChar(&t);
   } else {
@@ -672,7 +710,7 @@ int midresolveprompt(char *unifier){
 }
 
 char *resolve(char *goal, char *unifier, int level){
-  if(!goal) return unifier;
+  if(!goal) return copyString(unifier);
   StringList *kb = KnowledgeBase;
   char *ans = NULL;
   while(kb){
@@ -683,7 +721,7 @@ char *resolve(char *goal, char *unifier, int level){
     if(!ans){
       freeChar(&kbentry);
     } else {
-      appendProof(kbentry);
+      // appendProof(kbentry);
       char *a1 = compose(unifier, ans);
       freeChar(&ans);
       ans = a1;
@@ -705,7 +743,7 @@ char *resolve(char *goal, char *unifier, int level){
           freeStringList(&Proof);
           return NULL;
         }
-        appendProof(bdyclause);
+        // appendProof(bdyclause);
         freeChar(&bdyclause);
         char *a2 = compose(ans, ans2);
         freeChar(&ans);
@@ -718,7 +756,7 @@ char *resolve(char *goal, char *unifier, int level){
         restbdy = rb;
       }
       if(level == 1){
-        appendResolution(ans);
+        // appendResolution(ans);
         int r = midresolveprompt(ans);
         if(r) return ans;
       } else {
@@ -799,6 +837,8 @@ int main(int argc, char const *argv[])
   printf("\n");
 
   char buf[B_MAX_STRING_LENGTH];
+  char *emptyu = malloc(6);
+  strcopy("{ | }", emptyu);
   while(1){
     printf("?-");
     fgets(buf, B_MAX_STRING_LENGTH-1, stdin);
@@ -807,20 +847,21 @@ int main(int argc, char const *argv[])
       if(!strcomp(buf, "quit.")) break;
       Query = wff(buf);
       char *unifier = resolve(Query, "{ | }",1);
-      if(Unifiers){
-        printf("Unifiers:\n");
-        printf("Θ = %s\n", Unifiers);
-        printf("Proof:\n");
-        printStringlist(Proof);
-        freeChar(&Unifiers);
-      } else {
-        printf("No Resolution found.\nΘ = {}\n");
-      }
+      // if(Unifiers){
+      //   printf("Unifiers:\n");
+      //   printf("Θ = %s\n", Unifiers);
+      //   printf("Proof:\n");
+      //   printStringlist(Proof);
+      //   freeChar(&Unifiers);
+      // } else {
+      //   printf("No Resolution found.\nΘ = {}\n");
+      // }
       freeChar(&Query);
       freeStringList(&Proof);
       freeChar(&unifier);
     }
   }
+  freeChar(&emptyu);
   freeStringList(&KnowledgeBase);
   return 0;
 }
