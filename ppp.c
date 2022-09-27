@@ -770,7 +770,7 @@ char *resolve(char *goal, char *unifier, int level){
   return ans;
 }
 
-int loadKB(char *pathname){
+int loadKB(const char *pathname){
   char buf[B_MAX_STRING_LENGTH];
   StringList *kb = NULL;
   StringList *kb1 = NULL;
