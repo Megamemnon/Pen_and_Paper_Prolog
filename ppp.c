@@ -81,6 +81,7 @@ void freeStringList(StringList **list){
 
 StringList *splitByControlChars(char *str){
   if(!str) return NULL;
+  if(str[0] == '\0') return NULL;
   StringList *t1 = NULL;
   StringList *tn = NULL;
   StringList *tp = NULL;
@@ -790,14 +791,16 @@ int loadKB(char *pathname){
       buf[length - 1] = '\0';
       length -= 1;
     }
-    char *wffterm = wff(buf);
-    length = strlength(wffterm);
-    kb1->entry = wffterm;
-    kb1->next = malloc(sizeof(StringList));
-    kb2 = kb1;
-    kb1 = kb1->next;
-    kb1->entry = NULL;
-    kb1->next = NULL;
+    if(length > 0){
+      char *wffterm = wff(buf);
+      length = strlength(wffterm);
+      kb1->entry = wffterm;
+      kb1->next = malloc(sizeof(StringList));
+      kb2 = kb1;
+      kb1 = kb1->next;
+      kb1->entry = NULL;
+      kb1->next = NULL;
+    }
   }
   fclose(f);
   freeStringList(&kb2->next);
