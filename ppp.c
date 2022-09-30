@@ -38,19 +38,13 @@
 #include <stdio.h>
 #include <ctype.h>
 
+#include "ppp.h"
 #include "utils.h"
-
-#define DEBUG
 
 typedef enum 
 {
   TTVARIABLE, TTATOM, TTFUNCTOR, TTCONJUNCTION, TTCLAUSE, TTCONTROLCHAR
 }TermType;
-
-typedef struct STRING_LIST{
-  char *entry;
-  struct STRING_LIST *next;
-} StringList;
 
 StringList *KnowledgeBase;
 char *Query;
@@ -397,7 +391,8 @@ char * getBound(char *var, char *unifier){
   return NULL;
 }
 
-char *compose(char *origunifier, char *newunifier){
+/************************************
+char *origcompose(char *origunifier, char *newunifier){
   if(!origunifier || !newunifier) {
     if(origunifier) return copyString(origunifier);
     return copyString(newunifier);
@@ -477,6 +472,153 @@ char *compose(char *origunifier, char *newunifier){
         l1p = l1;
         l1 = l1->next;
       }
+    }
+    nu = lp;
+    lp = lp->next;
+  }
+  // verify there's at least one entry or 
+  // return the emtpy unifier
+  int x = 0;
+  if(!list->next){
+    if(!list->entry){
+      x = 1;
+    } else {
+      if(!strcomp(list->entry, "{ | }")){
+        x = 1;
+      }
+    }
+  }
+  if(x){
+    compos = malloc(6);
+    strcopy("{ | }", compos);
+    freeStringList(&list);
+    return compos;
+  }
+  compos = joinStringList(list);
+  freeStringList(&list);
+  return compos;
+}
+*************************************/
+
+char *getVariablefromSubstitution(char *subst){
+  int len = strlength(subst);
+  char *var = malloc(len-2);
+  char c;
+  int j = 0;
+  for(int i = 1; i<len; i++){
+    c = subst[i];
+    if(c == '|') break;
+    var[j++] = c;
+  }  
+  var[j] = '\0';
+  return var;
+}
+
+char *getBoundfromSubstitution(char *subst){
+  int len = strlength(subst);
+  char *var = malloc(len-2);
+  char c;
+  int j = 0;
+  int found = 0;
+  for(int i = 1; i<len; i++){
+    c = subst[i];
+    if(c == '|') found = 1;
+    if(c == '}') break;
+    if(found) var[j++] = c;
+  }  
+  var[j] = '\0';
+  return var;
+}
+
+
+char *compose(char *origunifier, char *newunifier){
+  if(!origunifier || !newunifier) {
+    if(origunifier) return copyString(origunifier);
+    return copyString(newunifier);
+  }
+  if(!strcomp(origunifier, newunifier)) return copyString(origunifier);
+  if(!strcomp(origunifier, "{ | }")) return copyString(newunifier);
+  if(!strcomp(newunifier, "{ | }")) return copyString(origunifier);
+  StringList *list = splitByControlChars(origunifier);
+  StringList *l1 = list;
+  StringList *lp = NULL;
+  char buf[B_MAX_STRING_LENGTH];
+  int bufi = 0;
+  int priorcurly = 0;
+  // replace any origunifier variables matched 
+  // in newunifier with their bound value
+  while(l1){
+    TermType typ = typeStringListEntry(l1);
+    if(typ == TTVARIABLE && !priorcurly){
+      char *bound = getBound(l1->entry, newunifier);
+      if(bound){
+        freeChar(&l1->entry);
+        l1->entry = malloc(strlength(bound)+1);
+        strcopy(bound, l1->entry);
+        freeChar(&bound);
+      }
+    }
+    priorcurly = l1->entry[0] =='{' ? 1 : 0;
+    lp = l1;
+    l1 = l1->next;
+  }
+  // append everything in newunifier to the end
+  // of origunifier (except blank "{ | }")
+  StringList *nu = splitUnifier(newunifier);
+  StringList *nu2 = nu;
+  while(nu2){
+    if(strcomp(nu2->entry,"{ | }")){
+      lp->next = malloc(sizeof(StringList));
+      lp = lp->next;
+      lp->entry = NULL;
+      lp->next = NULL;
+      lp->entry = malloc(strlength(nu2->entry)+1);
+      strcopy(nu2->entry, lp->entry);
+    } 
+    nu2 = nu2->next;
+  }
+  char *compos = joinStringList(list);
+  freeStringList(&list);
+  freeStringList(&nu);  
+  // remove any duplicate entries and remove 
+  // all blanks "{ | }"
+  list = splitUnifier(compos);
+  freeChar(&compos);
+  lp = list;
+  nu = lp;
+  while(lp){
+    //remove blanks
+    if(!strcomp(lp->entry, "{ | }") && lp->next){
+      l1 = lp->next;
+      lp->next = NULL;
+      freeStringList(&lp);
+      lp = l1;
+      if(nu == list){
+        list = lp;
+        nu = lp;
+      } else {
+        nu->next = lp;
+      }
+    }
+    //remove duplicates variables (from newunifier) and {var|var}
+    l1 = lp->next;
+    StringList *l1p = lp;
+    while(l1){
+      char *lpvar = getVariablefromSubstitution(lp->entry);
+      char *l1var = getVariablefromSubstitution(l1->entry);
+      char *l1bound = getBoundfromSubstitution(lp->entry);
+      if(!strcomp(lpvar, l1var) || !strcomp(l1var, l1bound)){
+        l1p->next = l1->next;
+        l1->next = NULL;
+        freeStringList(&l1);
+        l1 = l1p->next;
+      } else {
+        l1p = l1;
+        l1 = l1->next;
+      }
+      freeChar(&lpvar);
+      freeChar(&l1var);
+      freeChar(&l1bound);
     }
     nu = lp;
     lp = lp->next;
@@ -676,11 +818,8 @@ int appendProof(char *term){
   return 1;
 }
 
-int midresolveprompt(char *unifier){
+int midresolveprompt(char *unifier ){
   if(unifier){
-    printf("Yes.\n");
-    // printf("Θ = %s\n", unifier);
-    // printf("q = %s\n", Query);
     char *t = Query;
     char *tp = NULL;
     int done = 0;
@@ -698,6 +837,20 @@ int midresolveprompt(char *unifier){
         }
       }
     }
+    //if t contains a variable, return 0
+    StringList *tstr = splitByControlChars(t);
+    StringList *tstrn = tstr;
+    while(tstrn){
+      if(typeStringListEntry(tstrn) == TTVARIABLE){
+        freeStringList(&tstr);
+        return 0;
+      }
+      tstrn = tstrn->next;
+    }
+    freeStringList(&tstr);
+    printf("Yes.\n");
+    printf("Θ = %s\n", unifier);
+    printf("q = %s\n", Query);
     printf("Θq = %s\n", t);
     freeChar(&t);
   } else {
@@ -715,6 +868,7 @@ char *resolve(char *goal, char *unifier, int level){
   StringList *kb = KnowledgeBase;
   char *ans = NULL;
   while(kb){
+    int no = 0;
     char *kbentry = indexVariables(kb->entry);
     char *hed = head(kbentry);
     ans = unify(goal, hed, unifier);
@@ -742,7 +896,8 @@ char *resolve(char *goal, char *unifier, int level){
           freeChar(&bdyclause);
           freeChar(&restbdy);
           freeStringList(&Proof);
-          return NULL;
+          no = 1;
+          break;
         }
         // appendProof(bdyclause);
         freeChar(&bdyclause);
@@ -756,13 +911,16 @@ char *resolve(char *goal, char *unifier, int level){
         freeChar(&restbdy);
         restbdy = rb;
       }
-      if(level == 1){
-        // appendResolution(ans);
-        int r = midresolveprompt(ans);
-        if(r) return ans;
-      } else {
-        return ans;
+      if(!no){
+        // if(level == 1){
+          // appendResolution(ans);
+          int r = midresolveprompt(ans);
+          if(r) return NULL;
+        // } else {
+        //   return ans;
+        // }
       }
+      no = 0;
     }
     freeChar(&ans);
     kb = kb->next;
@@ -807,64 +965,4 @@ int loadKB(const char *pathname){
   kb2->next = NULL;
   KnowledgeBase = kb;
   return 1;
-}
-
-int main(int argc, char const *argv[])
-{
- 
-  // Initialize Globals
-  KnowledgeBase = NULL;
-  Query = NULL;
-  Unifiers = NULL;
-  Proof = NULL;
-
-  printf("Pen & Paper Prolog\nCopyright (c) 2022 Brian O'Dell\n");
-
-  int load;
-#ifdef DEBUG
-  load = loadKB("/home/brian/dev/ppp/testkb");
-#else
-  if(argc == 0){
-    printf("usage: ppp knowledgebasefile\n");
-    return 1;
-  }
-  load = loadKB(argv[1]);
-#endif
-  if(!load){
-    printf("\nFile Not Found\n");
-    return 1;
-  }
-
-  printf("\nKnowledge Base Loaded:\n");
-  printStringlist(KnowledgeBase);
-  printf("\n");
-
-  char buf[B_MAX_STRING_LENGTH];
-  char *emptyu = malloc(6);
-  strcopy("{ | }", emptyu);
-  while(1){
-    printf("?-");
-    fgets(buf, B_MAX_STRING_LENGTH-1, stdin);
-    if(buf[0] != '\0' && buf[0] != '\n'){
-      buf[strlength(buf)-1] = '\0';
-      if(!strcomp(buf, "quit.")) break;
-      Query = wff(buf);
-      char *unifier = resolve(Query, "{ | }",1);
-      // if(Unifiers){
-      //   printf("Unifiers:\n");
-      //   printf("Θ = %s\n", Unifiers);
-      //   printf("Proof:\n");
-      //   printStringlist(Proof);
-      //   freeChar(&Unifiers);
-      // } else {
-      //   printf("No Resolution found.\nΘ = {}\n");
-      // }
-      freeChar(&Query);
-      freeStringList(&Proof);
-      freeChar(&unifier);
-    }
-  }
-  freeChar(&emptyu);
-  freeStringList(&KnowledgeBase);
-  return 0;
 }
