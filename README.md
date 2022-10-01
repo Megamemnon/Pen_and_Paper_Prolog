@@ -22,6 +22,49 @@ Whitespace is ignored (in fact removed).
 KB should consist of facts and rules.  
 ppp expects a query at the "?-" prompt.  
 
+## Usage
+Specify a KB file when running ppp (e.g. "ppp database"). ppp will load contents of the specified text file into the global KnowledgeBase variable. Then ppp will present the Command prompt.
+
+Command prompt ']' supports several commands.  
+Queries can be entered directly from the Command prompt by starting the query with the traditional '?-'.  
+Statement prompt '>' is presented when you can enter a statement.  
+
+quit/0 - exits ppp.  
+> ]quit.  
+
+list/0 - lists all statements in KnowledgeBase. 
+> ]list().  (List the entire KB)  
+
+OK, that isn't really an arity of 0; I'll fix it.  
+
+list/2 - lists statements in KB
+  - Start - number of first statement to list, 0-based  
+  - Count - number of statements to display  
+> ]list(3, 1).  
+> d(3).
+
+edit/1  
+  - index - 0-based index of statement to edit  
+> ]edit(3).  
+> Enter statement to replace statement 3:  
+> d(3).  
+> \>d(33).  
+> Continue? (y/N) 
+
+insert/1
+  - index - 0-based index of statement before which new statement should be entered...  
+> ]insert(3).  
+> Enter statement to insert prior to statement 3:  
+> d(3).  
+> \> d(2).  
+> Continue? (y/N)  
+
+delete/1
+  - index - 0-based index of statement to be deleted  
+> ]delete(3).
+
+append/0 - prompts for new statemnet and then appends it to KB.
+
 ## Project Goals
 - Implement a functional (but minimal) form of Prolog
   - This goal is complete, for now, and tested with various included tests
@@ -31,6 +74,8 @@ ppp expects a query at the "?-" prompt.
   - Verified good Garbage Collection with Valgrind (no errors/leaks).
 - Provide a readable proof to the user upon success (not quite there yet).  
 - Support modifying the KB from within ppp (and saving the new KB file), using resolution as a method to verify correctness of new KB entries.
+  - This goal is complete
+    - Command prompt supports: list, edit, insert, append, delete and queries.
 - provide additional language/KB features
   - Label individual KB entries
   - Comment on individual KB entries
