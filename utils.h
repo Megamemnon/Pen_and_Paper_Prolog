@@ -51,7 +51,7 @@ int strInStr(char *str, char *search);
 /* concat - returns a new (char *) pointint to beginning of str1 & str2 */
 char *concat(char *str1, char *str2);
 /* convert string to int; will return a number by ignoring all non digits in string */
-int atoi(const char* s);
+int atoint(const char* s);
 /* resetTib -  clears first byte of tib and sets tibIndex to 0 */
 void resetTib();
 /* output - hardware independent print */

@@ -58,6 +58,7 @@ int strlength(char *s){
 }
 
 char *copyString(char *str){
+  if(!str) return NULL;
   char *newstr = malloc(strlength(str)+1);
   strcopy(str, newstr);
   return newstr;
@@ -96,7 +97,7 @@ char *concat(char *str1, char *str2){
   return newstr;
 }
 
-int atoi(const char* s){
+int atoint(const char* s){
     int num = 0;
     int i = 0;
     int negative = 0;

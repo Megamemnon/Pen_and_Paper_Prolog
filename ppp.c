@@ -47,13 +47,22 @@ typedef enum
 }TermType;
 
 StringList *KnowledgeBase;
+StringList *WorkingKB;
 char *Query;
 char *Unifiers;
 StringList *Proof;
+int AbortResolution;
 
 int isControlChar(char c){
   return (c == '(' || c == ')' || c == ',' || c == ':' || 
     c == '.' || c == '|' || c == '{' || c == '}');
+}
+
+StringList *newStringList(){
+  StringList *slist = malloc(sizeof(StringList));
+  slist->entry = NULL;
+  slist->next = NULL;
+  return slist;
 }
 
 void freeChar(char **charptr){
@@ -139,10 +148,34 @@ char *joinStringList(StringList *list){
   return str;
 }
 
-void printStringlist(StringList *list){
+StringList *copyStringList(StringList *strlist){
+  if(!strlist) return NULL;
+  StringList *newstrlist = NULL;
+  StringList *n = NULL;
+  while(strlist){
+    if(newstrlist){
+      n->next = newStringList();
+      n = n->next;
+    } else {
+      newstrlist = newStringList();
+      n = newstrlist;
+    }
+    n->entry = copyString(strlist->entry);
+    strlist = strlist->next;
+  }
+  return newstrlist;
+}
+
+void printStringlist(StringList *list, int start, int count){
+  int s = 0;
+  int c = 0;
   while(list){
-    if(list->entry) printf("%s\n", list->entry);
+    if(s>=start && c<count){
+      if(list->entry) printf("%s\n", list->entry);
+      c++;
+    }
     list = list->next;
+    s++;
   }
 }
 
@@ -784,6 +817,93 @@ char *indexVariables(char *term){
   return newterm;
 }
 
+int hasStatement(StringList *strlist, char *stmnt){
+  while(strlist){
+    if(!strcomp(strlist->entry,stmnt)) return 1;
+    strlist = strlist->next;
+  }
+  return 0;
+}
+
+void deleteStatement(StringList **strlist, int index){
+  StringList *s = (* strlist);
+  StringList *tbd = NULL;
+  StringList *prior = NULL;
+  int c = 0;
+  while(s){
+    if(c == index){
+      if(s == (* strlist)){
+        s = s->next;
+        (* strlist)->next = NULL;
+        freeStringList(&(* strlist));
+        (* strlist) = s;
+        return;
+      } else {
+        tbd = s;
+        s = s->next;
+        prior->next = s;
+        tbd->next = NULL;
+        freeStringList(&tbd);
+        return;
+      }
+    }
+    prior = s;
+    s = s->next;
+    c++;
+  }
+}
+
+void replaceStatement(StringList *strlist, int index, char *newstmnt){
+  StringList *s = strlist;
+  int c = 0;
+  while(s){
+    if(c == index){
+      freeChar(&s->entry);
+      s->entry = copyString(newstmnt);
+      return;
+    }
+    s = s->next;
+    c++;
+  }
+}
+
+void insertStatement(StringList **strlist, int index, char *newstmnt){
+  StringList *s = (* strlist);
+  StringList *new = NULL;
+  StringList *prior = NULL;
+  int c = 0;
+  while(s){
+    if(c == index){
+      if(s == (* strlist)){
+        s = newStringList();
+        s->entry = copyString(newstmnt);
+        s->next = (* strlist);
+        (* strlist) = s;
+        return;
+      } else {
+        new = newStringList();
+        new->entry = copyString(newstmnt);
+        new->next = s;
+        prior->next = new;
+        return;
+      }
+    }
+    prior = s;
+    s = s->next;
+    c++;
+  }
+}
+
+void appendStatement(StringList *strlist, char *newstmnt){
+  if(!newstmnt || !strlist) return;
+  while(strlist->next){
+    strlist = strlist->next;
+  }
+  strlist->next = newStringList();
+  strlist = strlist->next;
+  strlist->entry = copyString(newstmnt);
+}
+
 void appendResolution(char *unifier){
   char *r = Unifiers;
   if(!r){
@@ -837,6 +957,7 @@ int midresolveprompt(char *unifier ){
         }
       }
     }
+    // if(!hasStatement(WorkingKB, t)) appendStatement(WorkingKB, t);
     //if t contains a variable, return 0
     StringList *tstr = splitByControlChars(t);
     StringList *tstrn = tstr;
@@ -852,11 +973,12 @@ int midresolveprompt(char *unifier ){
     printf("Θ = %s\n", unifier);
     printf("q = %s\n", Query);
     printf("Θq = %s\n", t);
+    if(!hasStatement(WorkingKB, t)) appendStatement(WorkingKB, t);
     freeChar(&t);
   } else {
     printf("No.\n");
   }
-  printf("More? (y/N)? ");
+  printf("More? (y/N) ");
   char buf[10];
   fgets(buf, 9, stdin);
   if(buf[0] == 'Y' || buf[0] == 'y') return 0;
@@ -864,8 +986,9 @@ int midresolveprompt(char *unifier ){
 }
 
 char *resolve(char *goal, char *unifier, int level){
+  if(AbortResolution) return NULL;
   if(!goal) return copyString(unifier);
-  StringList *kb = KnowledgeBase;
+  StringList *kb = WorkingKB;
   char *ans = NULL;
   while(kb){
     int no = 0;
@@ -891,6 +1014,13 @@ char *resolve(char *goal, char *unifier, int level){
       }
       while(bdyclause){
         char *ans2 = resolve(bdyclause, ans, level + 1);
+        if(AbortResolution){
+          freeChar(&ans);
+          freeChar(&bdyclause);
+          freeChar(&restbdy);
+          freeStringList(&Proof);
+          return NULL;
+        }
         if(!ans2){
           freeChar(&ans);
           freeChar(&bdyclause);
@@ -915,7 +1045,11 @@ char *resolve(char *goal, char *unifier, int level){
         // if(level == 1){
           // appendResolution(ans);
           int r = midresolveprompt(ans);
-          if(r) return NULL;
+          if(r){
+            AbortResolution = 1; 
+            freeChar(&ans);
+            return NULL;
+          }
         // } else {
         //   return ans;
         // }
