@@ -35,7 +35,7 @@ int strcomp(char *s1, char * s2){
   return 0;
 }
 
-void strcopy(char *from, char *to){
+void strcopy(const char *from, char *to){
   if(!from) return;
   for(int i=0; i<B_MAX_STRING_LENGTH; i++){
     if(from[i]!=0){
@@ -48,7 +48,7 @@ void strcopy(char *from, char *to){
   }
 }
 
-int strlength(char *s){
+int strlength(const char *s){
   if(!s) return 0;
   int c = 0;
   while(s[c]!=0){
@@ -88,7 +88,7 @@ int strInStr(char *str, char *search){
   return 0;
 }
 
-char *concat(char *str1, char *str2){
+char *concat(const char *str1, const char *str2){
   char buf[B_MAX_STRING_LENGTH];
   strcopy(str1, buf);
   strcopy(str2, buf + strlength(str1));

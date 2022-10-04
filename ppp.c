@@ -71,6 +71,12 @@ void freeChar(char **charptr){
   (* charptr) = NULL;
 }
 
+void freeUnifier(char **unifier){
+  if(!(* unifier)) return;
+  if((* unifier)[0] == '{') freeChar(unifier);
+  return;
+}
+
 void freeStringList(StringList **list){
   StringList *next = NULL;
   while(* list){
@@ -133,18 +139,30 @@ StringList *splitByControlChars(char *str){
 }
 
 char *joinStringList(StringList *list){
-  char buf[B_MAX_STRING_LENGTH];
+  int buflength = 1000;
+  char *buf = malloc(buflength);
   int bufi = 0;
   int length = 0;
+
   while(list){
     length = strlength(list->entry);
     if(bufi + length >= B_MAX_STRING_LENGTH) return NULL;
     strcopy(list->entry, buf + bufi);
     bufi += length;
     list = list->next;
+    if(bufi + 100 >= buflength){
+      buflength +=1000;
+      char *tmp = realloc(buf, buflength);
+      if(!tmp){
+        freeChar(&buf);
+        return NULL;
+      }
+      buf = tmp;
+    }
   }
   char *str = malloc(bufi+1);
   strcopy(buf, str);
+  freeChar(&buf);
   return str;
 }
 
@@ -177,6 +195,17 @@ void printStringlist(StringList *list, int start, int count){
     list = list->next;
     s++;
   }
+}
+
+int fprintStringlist(char *filepathname, StringList *list){
+  FILE *f = openFile(filepathname, "w");
+  if(!f) return 0;
+  while(list){
+    if(list->entry) outputFile(f, list->entry);
+    list = list->next;
+  }
+  closeFile(f);
+  return 1;
 }
 
 StringList *splitUnifier(char *unifier){
@@ -216,11 +245,12 @@ StringList *splitUnifier(char *unifier){
 }
 
 char *firstTerm(char *term){
+  if(!term) return NULL;
   int length = strlength(term)+1;
   char *first = malloc(length+1);
   strcopy(term, first);
   int paren = 0;
-  for(int index = 1; index<length; index++){
+  for(int index = 0; index<length; index++){
     char c = first[index];
     if(c == '(') paren++;
     if(c == ')') paren--;
@@ -236,10 +266,12 @@ char *firstTerm(char *term){
 
 // 
 char *restTerm(char *term, char *firstTerm){
-  int length = strlength(term) + 1;
+  if(!term) return NULL;
+  int length = strlength(term) ;
   int lengthfirst = strlength(firstTerm);
+  if(length - lengthfirst < 2) return NULL;
   // if(term[length - 2] == '.') return NULL;
-  if(length - lengthfirst == 0) return NULL;
+  // if(length - lengthfirst == 0) return NULL;
   char *rest = malloc(length - lengthfirst+1);
   strcopy(term+lengthfirst+1, rest);
   if(rest[0] == '\0'){
@@ -255,8 +287,11 @@ char *head(char *clause){
   char *head = clause;
   int index = 0;
   int length = strlength(clause) + 1;
+  int paren = 0;
   while(index<length){
-    if(clause[index] == ':' && clause[index + 1] == '-'){
+    if(clause[index] == '(') paren++;
+    if(clause[index] == ')') paren--;
+    if(clause[index] == ':' && clause[index + 1] == '-' && !paren){
       head = malloc(index+1);
       for(int i = 0; i<=index; i++){
         head[i] = clause[i];
@@ -296,13 +331,22 @@ char *wff(char *clause){
   char *newClause = malloc(length+1);
   int index = 0;
   int newIndex = 0;
+  int paren = 0;
+  int illegalchar = 0;
   while(index<length){
     char c = clause[index++];
     if(!isspace(c)){
+      if(c == '(') paren++;
+      if(c ==')') paren--;
+      if(c =='{' || c == '}' || c == '|') illegalchar = 1;
       newClause[newIndex++] = c;
     }
   }
   newClause[newIndex] = '\0';
+  if(newClause[newIndex-2] !='.' || paren || illegalchar){
+    freeChar(&newClause);
+    return NULL;
+  }
   return newClause;
 }
 
@@ -572,6 +616,8 @@ char *compose(char *origunifier, char *newunifier){
   if(!strcomp(origunifier, newunifier)) return copyString(origunifier);
   if(!strcomp(origunifier, "{ | }")) return copyString(newunifier);
   if(!strcomp(newunifier, "{ | }")) return copyString(origunifier);
+  if(origunifier[0] != '{') return copyString(newunifier);
+  if(newunifier[0] != '{') return copyString(origunifier);
   StringList *list = splitByControlChars(origunifier);
   StringList *l1 = list;
   StringList *lp = NULL;
@@ -623,6 +669,7 @@ char *compose(char *origunifier, char *newunifier){
     //remove blanks
     if(!strcomp(lp->entry, "{ | }") && lp->next){
       l1 = lp->next;
+      if(lp == list) list = lp->next;
       lp->next = NULL;
       freeStringList(&lp);
       lp = l1;
@@ -659,6 +706,8 @@ char *compose(char *origunifier, char *newunifier){
   // verify there's at least one entry or 
   // return the emtpy unifier
   int x = 0;
+  //TODO what if list is null???
+  if(!list) return origunifier;
   if(!list->next){
     if(!list->entry){
       x = 1;
@@ -938,9 +987,9 @@ int appendProof(char *term){
   return 1;
 }
 
-int midresolveprompt(char *unifier ){
+int midresolveprompt(char *unifier , char *resolvent){
   if(unifier){
-    char *t = Query;
+    char *t = resolvent;
     char *tp = NULL;
     int done = 0;
     while(!done){
@@ -964,6 +1013,7 @@ int midresolveprompt(char *unifier ){
     while(tstrn){
       if(typeStringListEntry(tstrn) == TTVARIABLE){
         freeStringList(&tstr);
+        freeChar(&t);
         return 0;
       }
       tstrn = tstrn->next;
@@ -971,7 +1021,7 @@ int midresolveprompt(char *unifier ){
     freeStringList(&tstr);
     printf("Yes.\n");
     printf("Θ = %s\n", unifier);
-    printf("q = %s\n", Query);
+    printf("q = %s\n", resolvent);
     printf("Θq = %s\n", t);
     if(!hasStatement(WorkingKB, t)) appendStatement(WorkingKB, t);
     freeChar(&t);
@@ -985,79 +1035,105 @@ int midresolveprompt(char *unifier ){
   return 1;
 }
 
-char *resolve(char *goal, char *unifier, int level){
+char *resolve(char *goals, char *unifier, int level){
   if(AbortResolution) return NULL;
-  if(!goal) return copyString(unifier);
-  StringList *kb = WorkingKB;
+  if(!goals) return NULL; //copyString(unifier);
   char *ans = NULL;
-  while(kb){
-    int no = 0;
-    char *kbentry = indexVariables(kb->entry);
-    char *hed = head(kbentry);
-    ans = unify(goal, hed, unifier);
-    freeChar(&hed);
-    if(!ans){
-      freeChar(&kbentry);
-    } else {
-      // appendProof(kbentry);
-      char *a1 = compose(unifier, ans);
-      freeChar(&ans);
-      ans = a1;
-      char *bdy = body(kbentry);
-      freeChar(&kbentry);
-      char *bdyclause = NULL;
-      char *restbdy = NULL;
-      if(bdy){ 
-        bdyclause = firstTerm(bdy);
-        restbdy = restTerm(bdy, bdyclause);
-        freeChar(&bdy);
-      }
-      while(bdyclause){
-        char *ans2 = resolve(bdyclause, ans, level + 1);
-        if(AbortResolution){
-          freeChar(&ans);
-          freeChar(&bdyclause);
-          freeChar(&restbdy);
-          freeStringList(&Proof);
-          return NULL;
+  char *goal = firstTerm(goals);
+  char *restgoal = restTerm(goals, goal);
+  while(goal){
+    StringList *kb = WorkingKB;
+    while(kb){
+      int no = 0;
+      char *kbentry = indexVariables(kb->entry);
+      char *hed = head(kbentry);
+      ans = unify(goal, hed, unifier);
+      freeChar(&hed);
+      if(!ans){
+        freeChar(&kbentry);
+      } else {
+        // appendProof(kbentry);
+        char *a1 = compose(unifier, ans);
+        freeUnifier(&ans);
+        ans = a1;
+        char *bdy = body(kbentry);
+        char *bdyclause = NULL;
+        char *restbdy = NULL;
+        if(bdy){ 
+          bdyclause = firstTerm(bdy);
+          restbdy = restTerm(bdy, bdyclause);
+          freeChar(&bdy);
         }
-        if(!ans2){
-          freeChar(&ans);
-          freeChar(&bdyclause);
-          freeChar(&restbdy);
-          freeStringList(&Proof);
-          no = 1;
-          break;
-        }
-        // appendProof(bdyclause);
-        freeChar(&bdyclause);
-        char *a2 = compose(ans, ans2);
-        freeChar(&ans);
-        freeChar(&ans2);
-        ans = a2;
-        if(!restbdy) break;
-        bdyclause = firstTerm(restbdy);
-        char *rb = restTerm(restbdy, bdyclause);
-        freeChar(&restbdy);
-        restbdy = rb;
-      }
-      if(!no){
-        // if(level == 1){
-          // appendResolution(ans);
-          int r = midresolveprompt(ans);
-          if(r){
-            AbortResolution = 1; 
-            freeChar(&ans);
+        while(bdyclause){
+          char *ans2 = resolve(bdyclause, ans, level + 1);
+          if(AbortResolution){
+            freeUnifier(&ans);
+            freeChar(&bdyclause);
+            freeChar(&restbdy);
+            freeStringList(&Proof);
+            freeChar(&kbentry);
+            freeChar(&goal);
+            freeChar(&restgoal);
             return NULL;
           }
-        // } else {
-        //   return ans;
-        // }
+          if(!ans2){
+            freeUnifier(&ans);
+            freeChar(&bdyclause);
+            freeChar(&restbdy);
+            freeStringList(&Proof);
+            freeChar(&kbentry);
+            no = 1;
+            break;
+          }
+          // appendProof(bdyclause);
+          char *a2 = compose(ans, ans2);
+          freeUnifier(&ans2);
+          freeUnifier(&ans);
+          ans = a2;
+          freeChar(&bdyclause);
+          if(!restbdy){ 
+            break;
+          }
+          bdyclause = firstTerm(restbdy);
+          char *rb = restTerm(restbdy, bdyclause);
+          freeChar(&restbdy);
+          restbdy = rb;
+        }
+        if(!no){
+          if(level == 1){
+            // appendResolution(ans);
+            int r = midresolveprompt(ans, kbentry);
+            // if(strcomp(unifier, "{ | }")){
+            //   freeUnifier(unifier);
+            //   unifier = malloc(6);
+            //   strcopy("{ | }", unifier);
+            // }
+            if(r){
+              AbortResolution = 1; 
+              freeChar(&kbentry);
+              freeUnifier(&ans);
+              freeChar(&goal);
+              freeChar(&restgoal);
+              return NULL;
+            }
+          } else {
+            freeChar(&kbentry);
+            freeChar(&goal);
+            freeChar(&restgoal);
+            return ans;
+          }
+        }
+        freeChar(&kbentry);
+        no = 0;
       }
-      no = 0;
+      freeUnifier(&ans);
+      kb = kb->next;
     }
-    freeChar(&ans);
-    kb = kb->next;
+    freeChar(&goal);
+    goal = firstTerm(restgoal);
+    char *temp = restTerm(restgoal, goal);
+    freeChar(&restgoal);
+    restgoal = temp;
   }
   return ans;
 }

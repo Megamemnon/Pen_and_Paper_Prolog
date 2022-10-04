@@ -85,16 +85,20 @@ int main(int argc, char const *argv[])
         AbortResolution = 0;
         WorkingKB = copyStringList(KnowledgeBase);
         char *unifier = resolve(Query, "{ | }",1);
-        if(Unifiers){
-          printf("Unifiers:\n");
-          printf("Θ = %s\n", Unifiers);
-          // printf("Proof:\n");
-          // printStringlist(Proof);
+        if(!unifier){
+          printf("No.\n");
+        } else {
+          if(Unifiers){
+            printf("Unifiers:\n");
+            printf("Θ = %s\n", Unifiers);
+            // printf("Proof:\n");
+            // printStringlist(Proof);
+          }
+          printStringlist(WorkingKB, 0, 100);
         }
         freeChar(&Query);
         freeStringList(&Proof);
         freeChar(&unifier);
-        printStringlist(WorkingKB, 0, 100);
         freeStringList(&WorkingKB);
       }
     }
@@ -109,10 +113,11 @@ int main(int argc, char const *argv[])
 
       //List
       if(!strcomp(s->entry, "list")){
-        s = slist->next->next;
-        if(s->entry[0]==')'){
+        s = s->next;
+        if(s->entry[0]=='.'){
           printStringlist(KnowledgeBase, 0, 100);
         } else {
+          s = s->next;
           int start = atoint(s->entry);
           s = s->next->next;
           int count = atoint(s->entry);
@@ -181,17 +186,26 @@ int main(int argc, char const *argv[])
       //Delete
       if(!strcomp(s->entry, "delete")){
         s = s->next->next;
-        if(s->entry[0] != ')'){
-          int index = atoint(s->entry);
-          printf("Delete: ");
-          printStringlist(KnowledgeBase, index, 1);
-          if(continueprompt()){
-            deleteStatement(&KnowledgeBase, index);
-          }
-          putchar('\n');
+        int index = atoint(s->entry);
+        printf("Delete: ");
+        printStringlist(KnowledgeBase, index, 1);
+        if(continueprompt()){
+          deleteStatement(&KnowledgeBase, index);
         }
+        putchar('\n');
       }
 
+      //Save
+      if(!strcomp(s->entry, "save")){
+        char *fname = concat(argv[1], "work");
+        if(fprintStringlist(fname, KnowledgeBase)){
+          output("Done.\n");
+        } else {
+          output("KnowledgeBase not saved.\n");
+        }
+        freeChar(&fname);
+      }
+      freeStringList(&slist);
     }
 
   }

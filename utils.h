@@ -39,9 +39,9 @@ extern char tib[B_TIB_LENGTH];
 /* strcomp - Compare 2 strings; Returns 0 if identical otherwise first different char */
 int strcomp(char *s1, char * s2); 
 /* strcopy - copies chars from 'from' to 'to' until a 0 value is encountered. */
-void strcopy(char *from, char *to);
+void strcopy(const char *from, char *to);
 /* strlength - returns number of bytes before a 0 value is encountered */
-int strlength(char *s);
+int strlength(const char *s);
 /* copyString - returns a copy of str */
 char *copyString(char *str);
 /* returns location of character c in s; 0 if not found */
@@ -49,7 +49,7 @@ int charInStr(char *str, char search);
 /* strInStr - returns the first occurence of search in str */
 int strInStr(char *str, char *search);
 /* concat - returns a new (char *) pointint to beginning of str1 & str2 */
-char *concat(char *str1, char *str2);
+char *concat(const char *str1, const char *str2);
 /* convert string to int; will return a number by ignoring all non digits in string */
 int atoint(const char* s);
 /* resetTib -  clears first byte of tib and sets tibIndex to 0 */

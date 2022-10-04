@@ -24,6 +24,8 @@ StringList *copyStringList(StringList *strlist);
 
 void printStringlist(StringList *list, int start, int count);
 
+int fprintStringlist(char *filepathname, StringList *list);
+
 void deleteStatement(StringList **strlist, int index);
 
 void replaceStatement(StringList *strlist, int index, char *newstmnt);
